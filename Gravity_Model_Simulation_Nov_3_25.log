@@ -1,0 +1,126 @@
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  \\Client\H$\Desktop\Classes\Dauphine\2nd Year\1st Semester\Quantitative International Economics\Class 3\/Gravity_Model_Simulation_Nov_3_25.log
+  log type:  text
+ opened on:   3 Nov 2025, 17:46:25
+
+. 
+. * Check the data file
+. use "${path}/Chapter1Application1.dta", clear
+
+. 
+. * Describe data file, show notes created by the author of the dataset
+. describe
+
+Contains data from \\Client\H$\Desktop\Classes\Dauphine\2nd Year\1st Semester\Quantitative International Economics\Class 3\/Chapter1Application1.dta
+ Observations:        99,981                  
+    Variables:             9                  25 Oct 2016 07:57
+                                              (_dta has notes)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+exporter        str3    %9s                   Exporter ISO country code
+importer        str3    %9s                   Importer ISO country code
+pair_id         float   %9.0g                 Symmetric Pair ID
+year            float   %9.0g                 Year
+trade           double  %10.0g                Nominal trade flows in current US dollars
+DIST            double  %9.0g                 Population-weighted bilateral distance between i and j, in kilometers
+CNTG            byte    %8.0g                 Indicator. Equal to 1 if i and j share a common border
+LANG            byte    %8.0g                 Indicator. Equal to 1 if i and j speak the same official language
+CLNY            byte    %8.0g                 Indicator. Equal to 1 if i and j share a colonial relationship
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Sorted by: year  exporter  importer
+
+. notes
+
+_dta:
+  1.  Version created using BACI SITC Rev 2
+  2.  Germany unified (DEU) has data since 1991
+  3.  DEU designates FRG between 1949 and 1989
+  4.  CZE designates CZS between 1949 and 1992
+  5.  RUS designates SUN between 1949 and 1991
+  6.  KOR designates RKO since 1949
+  7.  the countries with no entry cost data are mainly small probably not in service trade data.
+  8.  data drawn from WDI for the year 2005 (earliest year available).
+
+. 
+. * Keep seleccted years (every 4 years)
+. keep if inlist(year, 1986, 1990, 1994, 1998, 2002, 2006)
+(71,415 observations deleted)
+
+. 
+. * Generate dependent variable
+. gen ln_trade = ln(trade)
+(2,463 missing values generated)
+
+. 
+. * Generate main independent variables
+. gen ln_DIST = ln(DIST)
+
+. 
+. 
+end of do-file
+
+. do "C:\Users\hachye24\AppData\Local\Temp\4\STD1c0_000000.tmp"
+
+. * For each exporter and each year, compute total output
+. bysort exporter year: egen Y = total(trade)
+
+. gen ln_Y = ln(Y)
+
+. 
+end of do-file
+
+. do "C:\Users\hachye24\AppData\Local\Temp\4\STD1c0_000000.tmp"
+
+. * For each importer and each year, compute total expenditure
+. bysort importer year: egen E = total(trade)
+
+. gen ln_E = ln(E)
+
+. /// total will not transform missing values into zero when summing, it will just not take them into account
+> 
+. * Label variables
+. label var ln_trade "Trade (log)"
+
+. label var ln_DIST "Distance (log)"
+
+. label var CNTG "Contiguity"
+
+. label var LANG "Common Official Language"
+
+. label var CLNY "Common Colonizer"
+
+. label var ln_Y "Output (log)"
+
+. label var ln_E "Expenditure (log)"
+
+. label var Y "Output (USD)"
+
+. label var E "Expenditure (USD)"
+
+. 
+end of do-file
+
+. sum trade, details
+option details not allowed
+r(198);
+
+. sum trade, detail
+
+          Nominal trade flows in current US dollars
+-------------------------------------------------------------
+      Percentiles      Smallest
+ 1%            0              0
+ 5%            0              0
+10%      .003156              0       Obs              28,566
+25%     .5799333              0       Sum of wgt.      28,566
+
+50%     13.03453                      Mean           3268.942
+                        Largest       Std. dev.      61836.04
+75%     162.3024        2920430
+90%     1222.693        3499663       Variance       3.82e+09
+95%     3622.599        3533437       Skewness       43.48683
+99%     33919.86        4233436       Kurtosis       2234.917
+

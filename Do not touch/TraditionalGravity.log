@@ -1,0 +1,488 @@
+-----------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  /Users/ftoubal/Dropbox/Lecture/Dauphine/M2 CI/Students/QIE_2024/1.StructuralGravity/Applications/1_Traditi
+> onalGravity/Results/TraditionalGravity.log
+  log type:  text
+ opened on:   3 Nov 2025, 13:50:55
+
+. 
+. * (Optional) Install or update required commands
+. * ssc install reghdfe, replace
+. * ssc install ppmlhdfe, replace
+. 
+. 
+. ********************************************************************************
+. ***                       LOAD AND PREPARE DATA                              ***
+. ********************************************************************************
+. 
+. use "Datasets/Chapter1Application1.dta", clear
+
+. 
+. * Keep selected years (every 4 years)
+. keep if inlist(year, 1986, 1990, 1994, 1998, 2002, 2006)
+(71,415 observations deleted)
+
+. 
+. * Generate dependent variable
+. gen ln_trade = ln(trade)
+(2,463 missing values generated)
+
+. 
+. * Generate main independent variables
+. gen ln_DIST = ln(DIST)
+
+. 
+. bys exporter year: egen Y = total(trade)
+
+. gen ln_Y = ln(Y)
+
+. 
+. bys importer year: egen E = total(trade)
+
+. gen ln_E = ln(E)
+
+. 
+. * Label variables
+. label var ln_trade "Trade (log)"
+
+. label var ln_DIST  "Distance (log)"
+
+. label var CNTG     "Contiguity"
+
+. label var LANG     "Common Official Language"
+
+. label var CLNY     "Common Colonizer"
+
+. label var ln_Y     "Output (log)"
+
+. label var ln_E     "Expenditure (log)"
+
+. label var Y        "Output (USD)"
+
+. label var E        "Expenditure (USD)"
+
+. 
+. 
+. ********************************************************************************
+. ***                    (a) OLS IGNORING MULTILATERAL RESISTANCE              ***
+. ********************************************************************************
+. 
+. reg ln_trade ln_DIST CNTG LANG CLNY ln_Y ln_E if exporter != importer, cluster(pair_id)
+
+Linear regression                               Number of obs     =     25,689
+                                                F(6, 2338)        =    3626.27
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.7585
+                                                Root MSE          =      1.743
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.001607     .02734   -36.64   0.000    -1.055221   -.9479943
+        CNTG |   .5738051   .1847098     3.11   0.002      .211593    .9360173
+        LANG |   .8015481   .0821017     9.76   0.000     .6405483    .9625479
+        CLNY |   .7348535   .1441929     5.10   0.000     .4520942    1.017613
+        ln_Y |   1.190236    .009456   125.87   0.000     1.171693    1.208779
+        ln_E |   .9075884   .0099098    91.58   0.000     .8881554    .9270213
+       _cons |  -11.28308   .2958274   -38.14   0.000    -11.86319   -10.70297
+------------------------------------------------------------------------------
+
+. 
+. outreg2 using "Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls", ///
+>     ctitle(OLS) addstat("Number of pairs", e(N_clust)) ///
+>     addtext("Exporter x Year FE", "No", "Importer x Year FE", "No") ///
+>     excel label nocons dec(3) se replace
+Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls
+dir : seeout
+
+. 
+. * RESET test
+. predict fit, xb
+
+. gen fit2 = fit^2
+
+. reg ln_trade ln_DIST CNTG LANG CLNY ln_Y ln_E fit2 if exporter != importer, cluster(pair_id)
+
+Linear regression                               Number of obs     =     25,689
+                                                F(7, 2338)        =    3261.34
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.7591
+                                                Root MSE          =     1.7409
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.050196   .0296194   -35.46   0.000    -1.108279   -.9921127
+        CNTG |   .7020627   .1774609     3.96   0.000     .3540655     1.05006
+        LANG |   .8348233   .0818868    10.19   0.000     .6742449    .9954017
+        CLNY |   .7970875   .1381426     5.77   0.000     .5261927    1.067982
+        ln_Y |    1.23547   .0152453    81.04   0.000     1.205574    1.265366
+        ln_E |   .9438483   .0143081    65.97   0.000     .9157905    .9719062
+        fit2 |  -.0069908   .0016656    -4.20   0.000     -.010257   -.0037246
+       _cons |  -11.62875   .3158735   -36.81   0.000    -12.24817   -11.00933
+------------------------------------------------------------------------------
+
+. test fit2 = 0
+
+ ( 1)  fit2 = 0
+
+       F(  1,  2338) =   17.62
+            Prob > F =    0.0000
+
+. drop fit*
+
+. 
+. * Save intermediate data
+. save "Datasets/1_TraditionalGravityData.dta", replace
+file Datasets/1_TraditionalGravityData.dta saved
+
+. 
+. 
+. ********************************************************************************
+. ***          (b) OLS WITH REMOTENESS INDEXES (APPROXIMATED MRTs)             ***
+. ********************************************************************************
+. 
+. * --- Option 1: Using totals directly ---
+. use "Datasets/1_TraditionalGravityData.dta", clear
+
+. 
+. bys exporter year: egen TotEj = total(E)
+
+. bys year: egen TotE = max(TotEj)
+
+. bys exporter year: egen REM_EXP = total(DIST / (E / TotE))
+
+. gen ln_REM_EXP = ln(REM_EXP)
+
+. 
+. bys importer year: egen TotYi = total(Y)
+
+. bys year: egen TotY = max(TotYi)
+
+. bys importer year: egen REM_IMP = total(DIST / (Y / TotY))
+
+. gen ln_REM_IMP = ln(REM_IMP)
+
+. 
+. * --- Option 2: Using collapse (cleaner for large datasets) ---
+. 
+. * Total expenditure
+. use "Datasets/1_TraditionalGravityData.dta", clear
+
+. keep importer year E
+
+. duplicates drop
+
+Duplicates in terms of all variables
+
+(28,152 observations deleted)
+
+. collapse (sum) E, by(year)
+
+. rename E TotE
+
+. save "Datasets/RMTNS_EXP.dta", replace
+file Datasets/RMTNS_EXP.dta saved
+
+. 
+. * Total output
+. use "Datasets/1_TraditionalGravityData.dta", clear
+
+. keep exporter year Y
+
+. duplicates drop
+
+Duplicates in terms of all variables
+
+(28,152 observations deleted)
+
+. collapse (sum) Y, by(year)
+
+. rename Y TotY
+
+. save "Datasets/RMTNS_IMP.dta", replace
+file Datasets/RMTNS_IMP.dta saved
+
+. 
+. * Merge totals back into main dataset
+. use "Datasets/1_TraditionalGravityData.dta", clear
+
+. merge m:1 year using "Datasets/RMTNS_EXP.dta", nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            28,566  
+    -----------------------------------------
+
+. merge m:1 year using "Datasets/RMTNS_IMP.dta", nogen
+
+    Result                      Number of obs
+    -----------------------------------------
+    Not matched                             0
+    Matched                            28,566  
+    -----------------------------------------
+
+. 
+. * Compute remoteness indexes
+. bys exporter year: egen REM_EXP = total(DIST / (E / TotE))
+
+. gen ln_REM_EXP = ln(REM_EXP)
+
+. 
+. bys importer year: egen REM_IMP = total(DIST / (Y / TotY))
+
+. gen ln_REM_IMP = ln(REM_IMP)
+
+. 
+. * Estimate model with remoteness
+. reg ln_trade ln_DIST CNTG LANG CLNY ln_Y ln_E ln_REM_EXP ln_REM_IMP ///
+>     if exporter != importer, cluster(pair_id)
+
+Linear regression                               Number of obs     =     25,689
+                                                F(8, 2338)        =    2705.16
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.7650
+                                                Root MSE          =     1.7194
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.184812   .0312683   -37.89   0.000    -1.246128   -1.123495
+        CNTG |    .246585   .1769254     1.39   0.164     -.100362     .593532
+        LANG |   .7393638   .0784147     9.43   0.000     .5855942    .8931335
+        CLNY |   .8424972   .1502508     5.61   0.000     .5478584    1.137136
+        ln_Y |   1.164259   .0094795   122.82   0.000      1.14567    1.182848
+        ln_E |   .9026382    .009908    91.10   0.000     .8832088    .9220676
+  ln_REM_EXP |   .9717723    .068192    14.25   0.000     .8380493    1.105495
+  ln_REM_IMP |   .2736933   .0597821     4.58   0.000      .156462    .3909247
+       _cons |  -35.21854   1.986234   -17.73   0.000    -39.11351   -31.32358
+------------------------------------------------------------------------------
+
+. 
+. outreg2 using "Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls", ///
+>     ctitle(OLS, Remoteness) addstat("Number of pairs", e(N_clust)) ///
+>     addtext("Exporter x Year FE", "No", "Importer x Year FE", "No") ///
+>     excel label nocons dec(3) se append
+Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls
+dir : seeout
+
+. 
+. * RESET test
+. predict fit, xb
+
+. gen fit2 = fit^2
+
+. reg ln_trade ln_DIST CNTG LANG CLNY ln_Y ln_E REM_EXP REM_IMP fit2 ///
+>     if exporter != importer, cluster(pair_id)
+
+Linear regression                               Number of obs     =     25,689
+                                                F(7, 2338)        =          .
+                                                Prob > F          =          .
+                                                R-squared         =     0.7640
+                                                Root MSE          =     1.7232
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.220168   .0333935   -36.54   0.000    -1.285652   -1.154684
+        CNTG |   .3792208   .1717909     2.21   0.027     .0423424    .7160992
+        LANG |   .7591734   .0792236     9.58   0.000     .6038176    .9145292
+        CLNY |   .9010046   .1431272     6.30   0.000     .6203351    1.181674
+        ln_Y |   1.207539   .0154244    78.29   0.000     1.177292    1.237786
+        ln_E |   .9324916    .014497    64.32   0.000     .9040633    .9609199
+     REM_EXP |   8.18e-10   6.23e-11    13.14   0.000     6.96e-10    9.40e-10
+     REM_IMP |   1.97e-10   3.96e-11     4.99   0.000     1.20e-10    2.75e-10
+        fit2 |  -.0061437   .0017023    -3.61   0.000    -.0094818   -.0028056
+       _cons |   -10.8532   .3162001   -34.32   0.000    -11.47326   -10.23313
+------------------------------------------------------------------------------
+
+. test fit2 = 0
+
+ ( 1)  fit2 = 0
+
+       F(  1,  2338) =   13.03
+            Prob > F =    0.0003
+
+. drop fit*
+
+. 
+. 
+. ********************************************************************************
+. ***        (c) OLS WITH EXPORTER-YEAR AND IMPORTER-YEAR FIXED EFFECTS        ***
+. ********************************************************************************
+. 
+. egen exp_time = group(exporter year)
+
+. egen imp_time = group(importer year)
+
+. 
+. reghdfe ln_trade ln_DIST CNTG LANG CLNY if exporter != importer, ///
+>     absorb(exp_time imp_time) cluster(pair_id)
+(MWFE estimator converged in 6 iterations)
+
+HDFE Linear regression                            Number of obs   =     25,689
+Absorbing 2 HDFE groups                           F(   4,   2338) =     364.13
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.8432
+                                                  Adj R-squared   =     0.8380
+                                                  Within R-sq.    =     0.2916
+Number of clusters (pair_id) =      2,339         Root MSE        =     1.4273
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.215573   .0381721   -31.84   0.000    -1.290428   -1.140718
+        CNTG |   .2231586   .2027687     1.10   0.271    -.1744666    .6207837
+        LANG |   .6609121   .0820656     8.05   0.000     .4999832    .8218409
+        CLNY |   .6704512   .1494025     4.49   0.000      .377476    .9634265
+       _cons |   13.08231   .3365621    38.87   0.000     12.42231     13.7423
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    exp_time |       414           0         414     |
+    imp_time |       414           6         408     |
+-----------------------------------------------------+
+
+. 
+. outreg2 using "Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls", ///
+>     ctitle(OLS, FE) addstat("Number of pairs", e(N_clust)) ///
+>     addtext("Exporter x Year FE", "Yes", "Importer x Year FE", "Yes") ///
+>     excel label nocons dec(3) se append
+Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls
+dir : seeout
+
+. 
+. * RESET test
+. predict fit, xb
+
+. gen fit2 = fit^2
+
+. reghdfe ln_trade ln_DIST CNTG LANG CLNY fit2 if exporter != importer, ///
+>     absorb(exp_time imp_time) cluster(pair_id)
+(MWFE estimator converged in 6 iterations)
+
+HDFE Linear regression                            Number of obs   =     25,689
+Absorbing 2 HDFE groups                           F(   5,   2338) =     374.19
+Statistics robust to heteroskedasticity           Prob > F        =     0.0000
+                                                  R-squared       =     0.8445
+                                                  Adj R-squared   =     0.8393
+                                                  Within R-sq.    =     0.2973
+Number of clusters (pair_id) =      2,339         Root MSE        =     1.4216
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.924493   .1141333   -16.86   0.000    -2.148305    -1.70068
+        CNTG |    .737857   .1961654     3.76   0.000     .3531808    1.122533
+        LANG |   1.017403   .0928715    10.95   0.000      .835284    1.199522
+        CLNY |   1.111093   .1626265     6.83   0.000     .7921862    1.430001
+        fit2 |  -.0895064   .0137303    -6.52   0.000    -.1164311   -.0625816
+       _cons |   19.89069   1.088352    18.28   0.000     17.75645    22.02492
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    exp_time |       414           0         414     |
+    imp_time |       414           6         408     |
+-----------------------------------------------------+
+
+. test fit2 = 0
+
+ ( 1)  fit2 = 0
+
+       F(  1,  2338) =   42.50
+            Prob > F =    0.0000
+
+. drop fit*
+
+. 
+. 
+. ********************************************************************************
+. ***            (d) PPML WITH EXPORTER-YEAR AND IMPORTER-YEAR FEs             ***
+. ********************************************************************************
+. 
+. ppmlhdfe trade ln_DIST CNTG LANG CLNY if exporter != importer, ///
+>     absorb(exp_time imp_time) cluster(pair_id) d
+warning: dependent variable takes very low values after standardizing (1.7344e-09)
+Iteration 1:   deviance = 1.4823e+07  eps = .         iters = 5    tol = 1.0e-04  min(eta) =  -4.98  P   
+Iteration 2:   deviance = 6.9889e+06  eps = 1.12e+00  iters = 4    tol = 1.0e-04  min(eta) =  -6.82      
+Iteration 3:   deviance = 4.8853e+06  eps = 4.31e-01  iters = 4    tol = 1.0e-04  min(eta) =  -8.72      
+Iteration 4:   deviance = 4.3728e+06  eps = 1.17e-01  iters = 4    tol = 1.0e-04  min(eta) = -10.26      
+Iteration 5:   deviance = 4.2780e+06  eps = 2.22e-02  iters = 3    tol = 1.0e-04  min(eta) = -11.39      
+Iteration 6:   deviance = 4.2662e+06  eps = 2.77e-03  iters = 3    tol = 1.0e-04  min(eta) = -12.45      
+Iteration 7:   deviance = 4.2653e+06  eps = 2.17e-04  iters = 2    tol = 1.0e-04  min(eta) = -13.06      
+Iteration 8:   deviance = 4.2652e+06  eps = 1.02e-05  iters = 2    tol = 1.0e-04  min(eta) = -13.38      
+Iteration 9:   deviance = 4.2652e+06  eps = 1.69e-07  iters = 2    tol = 1.0e-05  min(eta) = -13.43   S  
+Iteration 10:  deviance = 4.2652e+06  eps = 2.09e-10  iters = 2    tol = 1.0e-06  min(eta) = -13.43   S  
+Iteration 11:  deviance = 4.2652e+06  eps = 8.30e-16  iters = 2    tol = 1.0e-08  min(eta) = -13.43   S  
+Iteration 12:  deviance = 4.2652e+06  eps = 0.00e+00  iters = 1    tol = 1.0e-09  min(eta) = -13.43   S O
+------------------------------------------------------------------------------------------------------------
+(legend: p: exact partial-out   s: exact solver   h: step-halving   o: epsilon below tolerance)
+Converged in 12 iterations and 34 HDFE sub-iterations (tol = 1.0e-08)
+
+HDFE PPML regression                              No. of obs      =     28,152
+Absorbing 2 HDFE groups                           Residual df     =      2,345
+Statistics robust to heteroskedasticity           Wald chi2(4)    =    1755.71
+Deviance             =  4265228.313               Prob > chi2     =     0.0000
+Log pseudolikelihood =  -2194536.84               Pseudo R2       =     0.9634
+
+Number of clusters (pair_id)=      2,346
+                            (Std. err. adjusted for 2,346 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+       trade | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -.8409273   .0316575   -26.56   0.000    -.9029749   -.7788797
+        CNTG |   .4374432   .0831598     5.26   0.000     .2744529    .6004335
+        LANG |   .2474766   .0765388     3.23   0.001     .0974634    .3974898
+        CLNY |    -.22249   .1162441    -1.91   0.056    -.4503243    .0053444
+       _cons |   15.71033   .2666181    58.92   0.000     15.18777    16.23289
+------------------------------------------------------------------------------
+
+Absorbed degrees of freedom:
+-----------------------------------------------------+
+ Absorbed FE | Categories  - Redundant  = Num. Coefs |
+-------------+---------------------------------------|
+    exp_time |       414           0         414     |
+    imp_time |       414           6         408     |
+-----------------------------------------------------+
+
+. 
+. outreg2 using "Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls", ///
+>     ctitle(PPML, FE) addstat("Pseudo R2", e(r2_p), "Number of pairs", e(N_clust)) ///
+>     addtext("Exporter x Year FE", "Yes", "Importer x Year FE", "Yes") ///
+>     excel label nocons dec(3) se append
+Applications/1_TraditionalGravity/Results/Application_TraditionalGravity.xls
+dir : seeout
+
+. 
+. * Save final dataset
+. save "Datasets/1_TraditionalGravity.dta", replace
+file Datasets/1_TraditionalGravity.dta saved
+
+. 
+. log close
+      name:  <unnamed>
+       log:  /Users/ftoubal/Dropbox/Lecture/Dauphine/M2 CI/Students/QIE_2024/1.StructuralGravity/Applications/1_Traditi
+> onalGravity/Results/TraditionalGravity.log
+  log type:  text
+ closed on:   3 Nov 2025, 13:50:56
+-----------------------------------------------------------------------------------------------------------------------

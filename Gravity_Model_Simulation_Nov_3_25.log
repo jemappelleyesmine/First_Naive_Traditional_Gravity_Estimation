@@ -124,3 +124,42 @@ r(198);
 95%     3622.599        3533437       Skewness       43.48683
 99%     33919.86        4233436       Kurtosis       2234.917
 
+. do "C:\Users\hachye24\AppData\Local\Temp\4\STD1c0_000000.tmp"
+
+. 
+. hist trade (bin=44, start=0)
+variable bin not found
+r(111);
+
+end of do-file
+
+r(111);
+
+. do "C:\Users\hachye24\AppData\Local\Temp\4\STD1c0_000000.tmp"
+
+. * First naive estimation equation with ln and no fixed effect
+. reg ln_trade ln_DIST CNTG LANG CLNY ln_Y ln_E if exporter != importer, cluster(pair_id)
+
+Linear regression                               Number of obs     =     25,689
+                                                F(6, 2338)        =    3626.27
+                                                Prob > F          =     0.0000
+                                                R-squared         =     0.7585
+                                                Root MSE          =      1.743
+
+                            (Std. err. adjusted for 2,339 clusters in pair_id)
+------------------------------------------------------------------------------
+             |               Robust
+    ln_trade | Coefficient  std. err.      t    P>|t|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+     ln_DIST |  -1.001607     .02734   -36.64   0.000    -1.055221   -.9479943
+        CNTG |   .5738051   .1847098     3.11   0.002      .211593    .9360173
+        LANG |   .8015481   .0821017     9.76   0.000     .6405483    .9625479
+        CLNY |   .7348535   .1441929     5.10   0.000     .4520942    1.017613
+        ln_Y |   1.190236    .009456   125.87   0.000     1.171693    1.208779
+        ln_E |   .9075884   .0099098    91.58   0.000     .8881554    .9270213
+       _cons |  -11.28308   .2958274   -38.14   0.000    -11.86319   -10.70297
+------------------------------------------------------------------------------
+
+. 
+end of do-file
+

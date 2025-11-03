@@ -59,4 +59,4 @@ label var E "Expenditure (USD)"
 * First naive estimation equation with ln and no fixed effect
 reg ln_trade ln_DIST CNTG LANG CLNY ln_Y ln_E if exporter != importer, cluster(pair_id)
 
-Trade will decrease by 10% if distance increases by 10%.
+*Trade will decrease by 10% if distance increases by 10%.
